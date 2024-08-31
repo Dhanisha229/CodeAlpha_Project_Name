@@ -1,0 +1,111 @@
+The project's structure ought to resemble a primary socail media network where users can communicate with one another.Like on social networking,users should be able to create group projects and tasks inside them,assign jobs,and comment on each others work
+
+1. models.py(accounts app):
+
+# social_media/accounts/models.py
+from django.db import models
+from django.contrib.auth.models import AbstractUser
+
+class User(AbstractUser):
+    followers = models.ManyToManyField('self', related_name='following', symmetrical=False)
+
+class Group(models.Model):
+    name = models.CharField(max_length=255)
+    description = models.TextField()
+    members = models.ManyToManyField(User, related_name='groups')
+
+class Task(models.Model):
+    title = models.CharField(max_length=255)
+    description = models.TextField()
+    group = models.ForeignKey(Group, on_delete=models.CASCADE)
+    assigned_to = models.ForeignKey(User, on_delete=models.CASCADE, related_name='tasks')
+    comments = models.ManyToManyField('Comment', related_name='task_comments')
+
+2. models.py(posts app):
+
+# social_media/posts/models.py
+from django.db import models
+from django.contrib.auth.models import User
+
+class Post(models.Model):
+    title = models.CharField(max_length=255)
+    content = models.TextField()
+    author = models.ForeignKey(User, on_delete=models.CASCADE)
+    likes = models.ManyToManyField(User, related_name='likes')
+    comments = models.ManyToManyField('Comment', related_name='post_comments')
+
+class Comment(models.Model):
+    content = models.TextField()
+    author = models.ForeignKey(User, on_delete=models.CASCADE)
+    post = models.ForeignKey(Post, on_delete=models.CASCADE, null=True, blank=True)
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, null=True, blank=True)
+
+3. views.py(accounts app):
+
+# social_media/accounts/views.py
+from django.shortcuts import render, redirect
+from .models import User, Group, Task
+from .forms import GroupForm, TaskForm
+
+def group_list(request):
+    groups = Group.objects.all()
+    return render(request, 'groups/group_list.html', {'groups': groups})
+
+def group_detail(request, pk):
+    group = Group.objects.get(pk=pk)
+    tasks = group.task_set.all()
+    return render(request, 'groups/group_detail.html', {'group': group, 'tasks': tasks})
+
+def create_group(request):
+    if request.method == 'POST':
+        form = GroupForm(request.POST)
+        if form.is_valid():
+            group = form.save(commit=False)
+            group.save()
+            return redirect('group_list')
+    else:
+        form = GroupForm()
+    return render(request, 'groups/group_form.html', {'form': form})
+
+def task_list(request, pk):
+    group = Group.objects.get(pk=pk)
+    tasks = group.task_set.all()
+    return render(request, 'groups/task_list.html', {'group': group, 'tasks': tasks})
+
+def task_detail(request, pk):
+    task = Task.objects.get(pk=pk)
+    comments = task.comments.all()
+    if request.method == 'POST':
+        form = CommentForm(request.POST)
+        if form.is_valid():
+            comment = form.save(commit=False)
+            comment.author = request.user
+            comment.task = task
+            comment.save()
+            return redirect('task_detail', pk=pk)
+    else:
+        form = CommentForm()
+    return render(request, 'groups/task_detail.html', {'task': task, 'comments': comments, 'form': form})
+
+def create_task(request, pk):
+    group = Group.objects.get(pk=pk)
+    if request.method == 'POST':
+        form = TaskForm(request.POST)
+        if form.is_valid():
+            task = form.save(commit=False)
+            task.group = group
+            task.save()
+            return redirect('task_list', pk=pk)
+    else:
+        form = TaskForm()
+    return render(request, 'groups/task_form.html', {'form': form, 'group': group})
+
+4. views.py(post app):
+
+# social_media/posts/views.py
+from django.shortcuts import render, redirect
+from .models import Post, Comment
+from .forms import PostForm, CommentForm
+
+def post_list(request):
+    posts = Post.objects.all

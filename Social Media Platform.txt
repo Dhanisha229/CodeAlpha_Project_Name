@@ -1,0 +1,267 @@
+Develop a social media platform with features like user profiles,posts,comments,likes and follows.Use HTML/CSS/JavaScript for the frontend,a backend framework like Django or Express.js and a database for data storage
+
+Frontend (HTML/CSS/JavaScript)
+
+1. base.html:
+
+<!-- templates/base.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Social Media</title>
+    <link rel="stylesheet" href="{% static 'social_media/css/style.css' %}">
+</head>
+<body>
+    <header>
+        <nav>
+            <ul>
+                <li><a href="{% url 'post_list' %}">Home</a></li>
+                <li><a href="{% url 'login' %}">Login</a></li>
+                <li><a href="{% url 'register' %}">Register</a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+    <script src="{% static 'social_media/js/script.js' %}"></script>
+</body>
+</html>
+
+
+2. post_list.html:
+
+<!-- templates/posts/post_list.html -->
+{% extends 'base.html' %}
+
+{% block content %}
+    <h1>Post List</h1>
+    <ul>
+        {% for post in posts %}
+            <li>
+                {{ post.title }} ({{ post.author.username }})
+                <p>{{ post.content }}</p>
+                <button>Likes: {{ post.likes }}</button>
+                <button>Comments: {{ post.comments }}</button>
+            </li>
+        {% endfor %}
+    </ul>
+{% endblock %}
+
+3. post_detail.html:
+
+<!-- templates/posts/post_detail.html -->
+{% extends 'base.html' %}
+
+{% block content %}
+    <h1>{{ post.title }}</h1>
+    <p>{{ post.content }}</p>
+    <button>Likes: {{ post.likes }}</button>
+    <button>Comments: {{ post.comments }}</button>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Comment</button>
+    </form>
+{% endblock %}
+
+4. post_form.html:
+
+<!-- templates/posts/post_form.html -->
+{% extends 'base.html' %}
+
+{% block content %}
+    <h1>Create Post</h1>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Post</button>
+    </form>
+{% endblock %}
+
+5. profile.html:
+
+<!-- templates/accounts/profile.html -->
+{% extends 'base.html' %}
+
+{% block content %}
+    <h1>{{ user.username }}</h1>
+    <p>{{ user.email }}</p>
+    <button>Followers: {{ user.followers }}</button>
+    <button>Following: {{ user.following }}</button>
+{% endblock %}
+
+6. style.css:
+
+/* static/social_media/css/style.css */
+body {
+    font-family: Arial, sans-serif;
+}
+
+header {
+    background-color: #333;
+    color: #fff;
+    padding: 1em;
+    text-align: center;
+}
+
+nav ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+nav li {
+    display: inline-block;
+    margin-right: 20px;
+}
+
+nav a {
+    color: #fff;
+    text-decoration: none;
+}
+
+main {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2em;
+}
+
+h1 {
+    font-size: 24px;
+    margin-bottom: 10px;
+}
+
+ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+li {
+    margin-bottom: 10px;
+}
+
+button {
+    background-color: #333;
+    color: #fff;
+    border: none;
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+button:hover {
+    background-color: #
+
+2. Backend(Django)
+
+1. models.py
+
+# social_media/accounts/models.py
+from django.db import models
+from django.contrib.auth.models import AbstractUser
+
+class User(AbstractUser):
+    followers = models.ManyToManyField('self', related_name='following', symmetrical=False)
+
+class Post(models.Model):
+    title = models.CharField(max_length=255)
+    content = models.TextField()
+    author = models.ForeignKey(User, on_delete=models.CASCADE)
+    likes = models.ManyToManyField(User, related_name='likes')
+    comments = models.ManyToManyField('Comment', related_name='comments')
+
+class Comment(models.Model):
+    content = models.TextField()
+    author = models.ForeignKey(User, on_delete=models.CASCADE)
+    post = models.ForeignKey(Post, on_delete=models.CASCADE)
+
+2. views.py
+
+# social_media/accounts/views.py
+from django.shortcuts import render, redirect
+from .models import User, Post, Comment
+from .forms import PostForm, CommentForm
+
+def post_list(request):
+    posts = Post.objects.all()
+    return render(request, 'posts/post_list.html', {'posts': posts})
+
+def post_detail(request, pk):
+    post = Post.objects.get(pk=pk)
+    comments = post.comments.all()
+    if request.method == 'POST':
+        form = CommentForm(request.POST)
+        if form.is_valid():
+            comment = form.save(commit=False)
+            comment.author = request.user
+            comment.post = post
+            comment.save()
+            return redirect('post_detail', pk=pk)
+    else:
+        form = CommentForm()
+    return render(request, 'posts/post_detail.html', {'post': post, 'comments': comments, 'form': form})
+
+def create_post(request):
+    if request.method == 'POST':
+        form = PostForm(request.POST)
+        if form.is_valid():
+            post = form.save(commit=False)
+            post.author = request.user
+            post.save()
+            return redirect('post_list')
+    else:
+        form = PostForm()
+    return render(request, 'posts/post_form.html', {'form': form})
+
+def profile(request, username):
+    user = User.objects.get(username=username)
+    return render(request, 'accounts/profile.html', {'user': user})
+
+3. forms.py:
+
+# social_media/accounts/forms.py
+from django import forms
+from .models import Post, Comment
+
+class PostForm(forms.ModelForm):
+    class Meta:
+        model = Post
+        fields = ('title', 'content')
+
+class CommentForm(forms.ModelForm):
+    class Meta:
+        model = Comment
+        fields = ('content',)
+
+4. urls.py:
+
+# social_media/accounts/urls.py
+from django.urls import path
+from . import views
+
+urlpatterns = [
+    path('post_list/', views.post_list, name='post_list'),
+    path('post_detail/<pk>/', views.post_detail, name='post_detail'),
+    path('create_post/', views.create_post, name='create_post'),
+    path('profile/<username>/', views.profile, name='profile'),
+]
+
+5. settings.py:
+
+# social_media/settings.py
+INSTALLED_APPS = [
+    # ...
+    'accounts',
+    'posts',
+    # ...
+]
+
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    }
+}

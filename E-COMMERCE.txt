@@ -1,0 +1,192 @@
+Develop a basic e-commerce store with product listings and a shopping cart.Use HTML/CSS/JavaScript for the front end and a backend framework with Django or Express.js with a database for product management and order processing
+
+A. Backend (Django)
+
+1. models.py:
+
+# store/models.py
+from django.db import models
+
+class Product(models.Model):
+    title = models.CharField(max_length=255)
+    description = models.TextField()
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    image = models.ImageField(upload_to='products/')
+
+class Order(models.Model):
+    customer_name = models.CharField(max_length=255)
+    customer_email = models.EmailField()
+    order_date = models.DateTimeField(auto_now_add=True)
+    products = models.ManyToManyField(Product)
+    total_cost = models.DecimalField(max_digits=10, decimal_places=2)
+
+2. views.py:
+
+# store/views.py
+from django.shortcuts import render, redirect
+from .models import Product, Order
+from .forms import OrderForm
+
+def product_list(request):
+    products = Product.objects.all()
+    return render(request, 'store/product_list.html', {'products': products})
+
+def shopping_cart(request):
+    if request.method == 'POST':
+        form = OrderForm(request.POST)
+        if form.is_valid():
+            order = form.save(commit=False)
+            order.save()
+            return redirect('order_success')
+    else:
+        form = OrderForm()
+    return render(request, 'store/shopping_cart.html', {'form': form})
+
+def order_success(request):
+    return render(request, 'store/order_success.html')
+``
+
+B. FRONTEND(HTML/CSS/JavaScript)
+
+1. base.html:
+
+<!-- store/templates/store/base.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>E-commerce Store</title>
+    <link rel="stylesheet" href="{% static 'store/css/style.css' %}">
+</head>
+<body>
+    <header>
+        <nav>
+            <ul>
+                <li><a href="{% url 'product_list' %}">Product List</a></li>
+                <li><a href="{% url 'shopping_cart' %}">Shopping Cart</a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+    <script src="{% static 'store/js/script.js' %}"></script>
+</body>
+</html>
+
+2. product_list.html:
+
+<!-- store/templates/store/product_list.html -->
+{% extends 'base.html' %}
+
+{% block content %}
+    <h1>Product List</h1>
+    <ul>
+        {% for product in products %}
+            <li>
+                {{ product.title }} ({{ product.price }})
+                <img src="{{ product.image.url }}" alt="Product Image">
+                <button>Add to Cart</button>
+            </li>
+        {% endfor %}
+    </ul>
+{% endblock %}
+
+3. shopping_cart.html:
+
+<!-- store/templates/store/shopping_cart.html -->
+{% extends 'base.html' %}
+
+{% block content %}
+    <h1>Shopping Cart</h1>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Place Order</button>
+    </form>
+{% endblock %}
+
+4. order_success.html:
+
+<!-- store/templates/store/order_success.html -->
+{% extends 'base.html' %}
+
+{% block content %}
+    <h1>Order Success!</h1>
+    <p>Thank you for your order!</p>
+{% endblock %}
+
+5. style.css:
+
+/* store/static/store/css/style.css */
+body {
+    font-family: Arial, sans-serif;
+}
+
+header {
+    background-color: #333;
+    color: #fff;
+    padding: 1em;
+    text-align: center;
+}
+
+nav ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+nav li {
+    display: inline-block;
+    margin-right: 20px;
+}
+
+nav a {
+    color: #fff;
+    text-decoration: none;
+}
+
+main {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2em;
+}
+
+h1 {
+    font-size: 24px;
+    margin-bottom: 10px;
+}
+
+ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+li {
+    margin-bottom: 10px;
+}
+
+img {
+    width: 100px;
+    height: 100px;
+    margin: 10px;
+}
+
+button {
+    background-color: #333;
+    color: #fff;
+    border: none;
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+button:hover {
+    background-color: #555;
+}
+
+6.script.js:
+
+// store/static/store/js/script.js
+console.log('Hello from script.js!');
